@@ -16,7 +16,7 @@ sensor:
   - platform: movie_times
     name: Movie Times
     next_days: 0
-    include_past_shows: true
+    filter_past_shows: true
     theaters:
       - theater_name: The Brattle
         show_screen: false
@@ -33,6 +33,6 @@ sensor:
 ```
 `next_day` is the number of days into the future to include — `0` means to only show today, `1` means to show today and tomorrow, and so on. It's probably useless to make this very big, because not all of these theaters schedule stuff very far out. This is optional and defaults to `0`.
 
-`include_past_shows` controls whether or not showtimes today that have already happened will appear. This is optional and defaults to `false`. By default, the sensor updates hourly, so this might be a little delayed if enabled.
+`filter_past_shows` controls whether or not showtimes today that have already happened will appear. This is optional and defaults to `false`. By default, the sensor updates hourly, so this might be a little delayed if enabled.
 
 For now, this only works with the `theater_name`s listed in the example. `show_screen` and `show_details` are optional, and both default to `false`. Each theater gives different details, but it's usually stuff like the format or what rep series a screening falls under. For single screen theaters, like The Brattle, `show_screen` will always be `1`.
