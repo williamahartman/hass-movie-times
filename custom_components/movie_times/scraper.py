@@ -1,8 +1,10 @@
 import requests
+import logging
 from bs4 import BeautifulSoup
 from zoneinfo import ZoneInfo
 from datetime import datetime, date, timedelta, timezone
 
+_LOGGER = logging.getLogger(__name__)
 
 def get_brattle_showtimes(
     days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True
@@ -46,17 +48,13 @@ def get_brattle_showtimes(
 def get_coolidge_showtimes(
     days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True
 ):
-    url_template = "https://coolidge.org/?date={}"
-    url = url_template.format(
-        (date.today() + timedelta(days=days_from_now)).isoformat(), days_from_now
-    )
+    url_template = "https://coolidge.org/showtimes?date={}"
+    url = url_template.format((date.today() + timedelta(days=days_from_now)).isoformat())
     raw_html = requests.get(url).text
-    data = BeautifulSoup(raw_html, "html.parser")
-
-    shows_raw = data.select(".view-content")[2]
+    data = BeautifulSoup(raw_html, "html5lib")
 
     shows = []
-    for film_card in shows_raw.select(".film-card"):
+    for film_card in data.select(".film-card"):
         show_data = {}
         show_data["name"] = (
             film_card.select_one(".film-card__title")
