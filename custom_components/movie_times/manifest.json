@@ -1,0 +1,11 @@
+{
+  "codeowners": ["@williamahartman"],
+  "config_flow": false,
+  "dependencies": [],
+  "documentation": "",
+  "domain": "movie_times",
+  "iot_class": "cloud_polling",
+  "name": "Movie Times",
+  "requirements": ["requests==2.26.0", "beautifulsoup4==4.10.0 "],
+  "version": "1.0.0"
+}
