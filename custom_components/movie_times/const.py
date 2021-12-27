@@ -1,6 +1,6 @@
 DOMAIN = "movie_times"
 
-CONF_PAST_SHOWS = "include_past_shows"
+CONF_PAST_SHOWS = "filter_past_shows"
 CONF_NUM_DAYS = "next_days"
 CONF_THEATERS = "theaters"
 CONF_THEATER_NAME = "theater_name"
