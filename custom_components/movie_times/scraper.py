@@ -6,13 +6,10 @@ from datetime import datetime, date, timedelta, timezone
 
 _LOGGER = logging.getLogger(__name__)
 
-def get_brattle_showtimes(
-    days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True
-):
+
+def get_brattle_showtimes(days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True):
     url_template = "https://brattlefilm.org/{}/{}"
-    url = url_template.format(
-        (date.today() + timedelta(days=days_from_now)).isoformat(), days_from_now
-    )
+    url = url_template.format((date.today() + timedelta(days=days_from_now)).isoformat(), days_from_now)
     raw_html = requests.get(url).text
     data = BeautifulSoup(raw_html, "html.parser")
 
@@ -28,6 +25,7 @@ def get_brattle_showtimes(
                 showtime_lines = showtime.text.strip().split("\t", 1)
                 showtime_data = {}
                 showtime_data["time"] = showtime_lines[0].strip()
+                showtime_data["link"] = showtime.attrs["href"]
                 if show_screen:
                     # single screen here, so I guess I'll put everthing in "1"?
                     showtime_data["screen"] = "1"
@@ -45,9 +43,7 @@ def get_brattle_showtimes(
     return shows
 
 
-def get_coolidge_showtimes(
-    days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True
-):
+def get_coolidge_showtimes(days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True):
     url_template = "https://coolidge.org/showtimes?date={}"
     url = url_template.format((date.today() + timedelta(days=days_from_now)).isoformat())
     raw_html = requests.get(url).text
@@ -56,27 +52,19 @@ def get_coolidge_showtimes(
     shows = []
     for film_card in data.select(".film-card"):
         show_data = {}
-        show_data["name"] = (
-            film_card.select_one(".film-card__title")
-            .select_one(".film-card__link")
-            .text
-        )
+        show_data["name"] = film_card.select_one(".film-card__title").select_one(".film-card__link").text
 
         show_data["times"] = []
         for showtime in film_card.select(".showtime-ticket"):
-            if (
-                not filter_past_shows
-                or "views-row-inactive" not in showtime.parent.parent.attrs["class"]
-            ):
+            if not filter_past_shows or "views-row-inactive" not in showtime.parent.parent.attrs["class"]:
                 time_raw = showtime.select_one(".showtime-ticket__time").text
                 time_formatted = time_raw[0:-2] + " " + time_raw[-2:]
 
                 showtime_data = {}
                 showtime_data["time"] = time_formatted
+                showtime_data["link"] = showtime.parent.attrs["href"]
                 if show_screen:
-                    showtime_data["screen"] = showtime.select_one(
-                        ".showtime-ticket__venue"
-                    ).text
+                    showtime_data["screen"] = showtime.select_one(".showtime-ticket__venue").text
                 show_data["times"].append(showtime_data)
 
         if show_details:
@@ -90,9 +78,7 @@ def get_coolidge_showtimes(
     return shows
 
 
-def get_somerville_showtimes(
-    days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True
-):
+def get_somerville_showtimes(days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True):
     return get_frame_one_showtimes(
         "https://somervilletheatre.com/wp-content/themes/somerville/showtimes.xml",
         days_from_now=days_from_now,
@@ -102,9 +88,7 @@ def get_somerville_showtimes(
     )
 
 
-def get_capitol_showtimes(
-    days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True
-):
+def get_capitol_showtimes(days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True):
     return get_frame_one_showtimes(
         "https://www.capitoltheatreusa.com/wp-content/themes/capitoltheatre/showtimes.xml",
         days_from_now=days_from_now,
@@ -114,23 +98,15 @@ def get_capitol_showtimes(
     )
 
 
-def get_frame_one_showtimes(
-    url, days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True
-):
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0"
-    }
+def get_frame_one_showtimes(url, days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True):
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0"}
     raw_html = requests.get(url, headers=headers).text
     data = BeautifulSoup(raw_html, "html.parser")
 
     shows = []
 
     # Both of this company's theaters are in MA, so it's safe to assume EST
-    todays_date_EST = (
-        datetime.today()
-        .replace(tzinfo=timezone.utc)
-        .astimezone(tz=ZoneInfo("America/New_York"))
-    )
+    todays_date_EST = datetime.today().replace(tzinfo=timezone.utc).astimezone(tz=ZoneInfo("America/New_York"))
     target_date = todays_date_EST + timedelta(days=days_from_now)
 
     film_titles = data.find_all("filmtitle")
@@ -153,9 +129,8 @@ def get_frame_one_showtimes(
             is_target_date = show_date.date() == target_date.date()
             if is_target_date and (not filter_past_shows or days_from_now > 0 or show_date > target_date):
                 showtime_data = {}
-                showtime_data["time"] = (
-                    show_date.strftime("%I:%M %p").lower().removeprefix("0")
-                )
+                showtime_data["time"] = show_date.strftime("%I:%M %p").lower().removeprefix("0")
+                showtime_data["link"] = show.find("salelink").text
                 if show_screen:
                     showtime_data["screen"] = show.find("screen").text
                 show_data["times"].append(showtime_data)

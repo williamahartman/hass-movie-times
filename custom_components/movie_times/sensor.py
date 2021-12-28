@@ -40,37 +40,55 @@ async def async_setup_platform(
     async_add_entities: Callable,
     discovery_info: Optional[DiscoveryInfoType] = None,
 ) -> None:
-    async_add_entities([MovieTimesSensor(config)], update_before_add=True)
+    sensors = []
+    for theater_conf in config.get(CONF_THEATERS):
+        scrape_method = None
+        if theater_conf.get(CONF_THEATER_NAME) == "The Brattle":
+            scrape_method = get_brattle_showtimes
+        elif theater_conf.get(CONF_THEATER_NAME) == "Coolidge Corner":
+            scrape_method = get_coolidge_showtimes
+        elif theater_conf.get(CONF_THEATER_NAME) == "Somerville Theatre":
+            scrape_method = get_somerville_showtimes
+        elif theater_conf.get(CONF_THEATER_NAME) == "Capitol Theatre":
+            scrape_method = get_capitol_showtimes
+        sensors.append(
+            MovieTimesSensor(
+                theater_conf.get(CONF_THEATER_NAME) + " Showtimes",
+                theater_conf.get(CONF_THEATER_NAME),
+                config.get(CONF_NUM_DAYS) or 0,
+                config.get(CONF_PAST_SHOWS) or False,
+                theater_conf.get(CONF_SHOW_DETAILS) or False,
+                theater_conf.get(CONF_SHOW_SCREEN) or False,
+                scrape_method,
+            )
+        )
+    async_add_entities(sensors, update_before_add=True)
 
 
 class MovieTimesSensor(Entity):
-    def __init__(self, config):
-        self._days = config.get(CONF_NUM_DAYS) or 0
-        self._filter_past = config.get(CONF_PAST_SHOWS) or False
-
-        theaters = []
-        for theater_conf in config.get(CONF_THEATERS):
-            data = {}
-            data["name"] = theater_conf.get(CONF_THEATER_NAME)
-            data["show_details"] = theater_conf.get(CONF_SHOW_DETAILS) or False
-            data["show_screen"] = theater_conf.get(CONF_SHOW_SCREEN) or False
-            if data["name"] == "The Brattle":
-                data["scrape_method"] = get_brattle_showtimes
-            elif data["name"] == "Coolidge Corner":
-                data["scrape_method"] = get_coolidge_showtimes
-            elif data["name"] == "Somerville Theatre":
-                data["scrape_method"] = get_somerville_showtimes
-            elif data["name"] == "Capitol Theatre":
-                data["scrape_method"] = get_capitol_showtimes
-            theaters.append(data)
-        self.theaters = theaters
-        self._name = config.get(CONF_NAME)
+    def __init__(
+        self,
+        sensor_name,
+        theater_name,
+        days,
+        filter_past_shows,
+        show_details,
+        show_screen,
+        scrape_method,
+    ):
+        self._sensor_name = sensor_name
+        self._theater_name = theater_name
+        self._days = days
+        self._filter_past_shows = filter_past_shows
+        self._show_details = show_details
+        self._show_screen = show_screen
+        self._scrape_method = scrape_method
         self._attr = None
         self._state = None
 
     @property
     def name(self):
-        return self._name
+        return self._sensor_name
 
     @property
     def state(self):
@@ -81,22 +99,19 @@ class MovieTimesSensor(Entity):
         return self._attr
 
     def update(self) -> None:
-        data = []
-        for theater in self.theaters:
-            theater_data = {}
-            theater_data["name"] = theater["name"]
-            showtimes = []
-            for i in range(self._days + 1):
-                day = {}
-                day["date"] = (datetime.today() + timedelta(days=i)).date().isoformat()
-                day["showtimes"] = theater["scrape_method"](
-                    days_from_now=i,
-                    filter_past_shows=self._filter_past,
-                    show_details=theater["show_details"],
-                    show_screen=theater["show_screen"],
-                )
-                showtimes.append(day)
-            theater_data["showtimes"] = showtimes
-            data.append(theater_data)
-        self._attr = {STATE_ATTR_MOVIE_TIMES: data}
+        theater_data = {}
+        theater_data["name"] = self._theater_name
+        showtimes = []
+        for i in range(self._days + 1):
+            day = {}
+            day["day"] = (datetime.today() + timedelta(days=i)).date().isoformat()
+            day["showtimes"] = self._scrape_method(
+                days_from_now=i,
+                filter_past_shows=self._filter_past_shows,
+                show_details=self._show_details,
+                show_screen=self._show_screen,
+            )
+            showtimes.append(day)
+        theater_data["days"] = showtimes
+        self._attr = {STATE_ATTR_MOVIE_TIMES: theater_data}
         self._state = "OK"

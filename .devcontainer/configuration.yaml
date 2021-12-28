@@ -1,0 +1,28 @@
+default_config:
+logger:
+  default: error
+  logs:
+    custom_components.movie_times: debug
+
+# debugpy:
+  # start: true
+  # wait: true
+  # port: 6789
+
+sensor:
+  - platform: movie_times
+    name: Movie Times
+    next_days: 0
+    theaters:
+      - theater_name: The Brattle
+        show_screen: false
+        show_details: true
+      - theater_name: Coolidge Corner
+        show_screen: true
+        show_details: true
+      - theater_name: Somerville Theatre
+        show_screen: true
+        show_details: true
+      - theater_name: Capitol Theatre
+        show_screen: true
+        show_details: true
