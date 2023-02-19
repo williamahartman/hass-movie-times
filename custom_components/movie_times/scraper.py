@@ -25,7 +25,8 @@ def get_brattle_showtimes(days_from_now=0, filter_past_shows=True, show_details=
                 showtime_lines = showtime.text.strip().split("\t", 1)
                 showtime_data = {}
                 showtime_data["time"] = showtime_lines[0].strip()
-                showtime_data["link"] = showtime.attrs["href"]
+                if "href" in showtime.attrs:
+                    showtime_data["link"] = showtime.attrs["href"]
                 if show_screen:
                     # single screen here, so I guess I'll put everthing in "1"?
                     showtime_data["screen"] = "1"
@@ -130,7 +131,8 @@ def get_frame_one_showtimes(url, days_from_now=0, filter_past_shows=True, show_d
             if is_target_date and (not filter_past_shows or days_from_now > 0 or show_date > target_date):
                 showtime_data = {}
                 showtime_data["time"] = show_date.strftime("%I:%M %p").lower().removeprefix("0")
-                showtime_data["link"] = show.find("salelink").text
+                if show.find("salelink"):
+                    showtime_data["link"] = show.find("salelink").text
                 if show_screen:
                     showtime_data["screen"] = show.find("screen").text
                 show_data["times"].append(showtime_data)
