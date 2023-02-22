@@ -47,10 +47,7 @@ For now, this only works with the `theater_name`s listed in the example. `show_s
 ## Frontend
 I didn't bother making a real lovelace card for this, but here's a couple quick and dirty options you could try out if you install [Lovelace HTML Jinja2 Template Card](https://github.com/PiotrMachowski/Home-Assistant-Lovelace-HTML-Jinja2-Template-card) and [Decluttering Card](https://github.com/custom-cards/decluttering-card)
 
-<details><summary>Show Lovelace YAML</summary>
-<p>
-```
-  movie_showtime_card:
+```  movie_showtime_card:
     default:
       - header_text: Change Me!
       - theater_entity: Change Me!
@@ -256,5 +253,3 @@ I didn't bother making a real lovelace card for this, but here's a couple quick 
           }
         </style>
 ```
-</p>
-</details>
