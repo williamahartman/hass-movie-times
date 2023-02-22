@@ -1,13 +1,13 @@
 import requests
 import logging
+import json
 from bs4 import BeautifulSoup
 from zoneinfo import ZoneInfo
 from datetime import datetime, date, timedelta, timezone
 
 _LOGGER = logging.getLogger(__name__)
 
-
-def get_brattle_showtimes(days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True):
+def get_brattle_showtimes(theater_id, days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True):
     url_template = "https://brattlefilm.org/{}/{}"
     url = url_template.format((date.today() + timedelta(days=days_from_now)).isoformat(), days_from_now)
     raw_html = requests.get(url).text
@@ -44,7 +44,7 @@ def get_brattle_showtimes(days_from_now=0, filter_past_shows=True, show_details=
     return shows
 
 
-def get_coolidge_showtimes(days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True):
+def get_coolidge_showtimes(theater_id, days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True):
     url_template = "https://coolidge.org/showtimes?date={}"
     url = url_template.format((date.today() + timedelta(days=days_from_now)).isoformat())
     raw_html = requests.get(url).text
@@ -79,7 +79,7 @@ def get_coolidge_showtimes(days_from_now=0, filter_past_shows=True, show_details
     return shows
 
 
-def get_somerville_showtimes(days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True):
+def get_somerville_showtimes(theater_id, days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True):
     return get_frame_one_showtimes(
         "https://somervilletheatre.com/wp-content/themes/somerville/showtimes.xml",
         days_from_now=days_from_now,
@@ -89,7 +89,7 @@ def get_somerville_showtimes(days_from_now=0, filter_past_shows=True, show_detai
     )
 
 
-def get_capitol_showtimes(days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True):
+def get_capitol_showtimes(theater_id, days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True):
     return get_frame_one_showtimes(
         "https://www.capitoltheatreusa.com/wp-content/themes/capitoltheatre/showtimes.xml",
         days_from_now=days_from_now,
@@ -138,5 +138,29 @@ def get_frame_one_showtimes(url, days_from_now=0, filter_past_shows=True, show_d
                 show_data["times"].append(showtime_data)
             had_show_on_target_date = had_show_on_target_date or is_target_date
         if had_show_on_target_date and (not filter_past_shows or len(show_data["times"]) > 0):
+            shows.append(show_data)
+    return shows
+
+def get_fandango_showtimes(theater_id, days_from_now=0, filter_past_shows=True, show_details=True, show_screen=True):
+    url_template = "https://www.fandango.com/napi/theaterMovieShowtimes/{}?date={}"
+    url = url_template.format(theater_id, (date.today() + timedelta(days=days_from_now)).isoformat())
+    headers = {"Referer": "https://www.fandango.com"}
+    raw_json = requests.get(url, headers=headers).text
+    data = json.loads(raw_json)['viewModel']['movies']
+    shows = []
+    for film in data:
+        for variant in film['variants']:
+            variant_suffix = "" if variant['format'] == 'Standard' else variant['format']
+            show_data = {}
+            show_data['name'] = film['title'] + variant_suffix
+            show_data['times'] = []
+            for amenity_group in variant['amenityGroups']:
+                for showtime in amenity_group['showtimes']:
+                    show_date = datetime.strptime(showtime['ticketingDate'], "%Y-%m-%d+%H:%M")
+                    showtime_data = {}
+                    showtime_data["time"] = show_date.strftime("%I:%M %p").lower().removeprefix("0")
+                    showtime_data["link"] = showtime['ticketingJumpPageURL']
+                    if not filter_past_shows or not showtime['expired']:
+                        show_data['times'].append(showtime_data)
             shows.append(show_data)
     return shows
