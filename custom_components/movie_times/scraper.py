@@ -1,6 +1,7 @@
 import requests
 import logging
 import json
+import re
 from bs4 import BeautifulSoup
 from zoneinfo import ZoneInfo
 from datetime import datetime, date, timedelta, timezone
@@ -150,9 +151,8 @@ def get_fandango_showtimes(theater_id, days_from_now=0, filter_past_shows=True, 
     shows = []
     for film in data:
         for variant in film['variants']:
-            variant_suffix = "" if variant['format'] == 'Standard' else variant['format']
             show_data = {}
-            show_data['name'] = film['title'] + variant_suffix
+            show_data['name'] = fandango_title_clean(film['title'],  variant['format'])
             show_data['times'] = []
             for amenity_group in variant['amenityGroups']:
                 for showtime in amenity_group['showtimes']:
@@ -164,3 +164,8 @@ def get_fandango_showtimes(theater_id, days_from_now=0, filter_past_shows=True, 
                         show_data['times'].append(showtime_data)
             shows.append(show_data)
     return shows
+
+def fandango_title_clean(title, format):
+    cleaned_title = re.sub(r'(\(\d{4}\))$', "", title) # Remove the year suffix fandango likes to add
+    suffix = "" if format == 'Standard' else " (" + format + ")"
+    return cleaned_title + suffix
