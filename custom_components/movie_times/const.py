@@ -8,5 +8,6 @@ CONF_THEATER_NAME = "theater_name"
 CONF_THEATER_ID = "theater_id"
 CONF_SHOW_DETAILS = "show_details"
 CONF_SHOW_SCREEN = "show_screen"
+CONF_SPLIT_FORMATS = "split_formats"
 
 STATE_ATTR_MOVIE_TIMES = "movie_times"

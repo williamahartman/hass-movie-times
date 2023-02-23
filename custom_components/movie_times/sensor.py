@@ -26,6 +26,7 @@ THEATER_SCHEMA = vol.Schema(
         vol.Optional(CONF_THEATER_ID): cv.string,
         vol.Optional(CONF_SHOW_DETAILS): cv.boolean,
         vol.Optional(CONF_SHOW_SCREEN): cv.boolean,
+        vol.Optional(CONF_SPLIT_FORMATS): cv.boolean,
     }
 )
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
@@ -45,26 +46,27 @@ async def async_setup_platform(
 ) -> None:
     sensors = []
     for theater_conf in config.get(CONF_THEATERS):
-        scrape_method = None
+        scraper = None
         if theater_conf.get(CONF_SCRAPER) == "brattle":
-            scrape_method = get_brattle_showtimes
+            scraper = BrattleScraper(theater_conf.get(CONF_SHOW_DETAILS))
         elif theater_conf.get(CONF_SCRAPER) == "coolidge":
-            scrape_method = get_coolidge_showtimes
+            scraper = CoolidgeScraper(theater_conf.get(CONF_SHOW_DETAILS),
+                                      theater_conf.get(CONF_SHOW_SCREEN))
         elif theater_conf.get(CONF_SCRAPER) == "somerville":
-            scrape_method = get_somerville_showtimes
+            scraper = FrameOneScraper("https://somervilletheatre.com/wp-content/themes/somerville/showtimes.xml",
+                                      theater_conf.get(CONF_SHOW_SCREEN))
         elif theater_conf.get(CONF_SCRAPER) == "capitol":
-            scrape_method = get_capitol_showtimes
+            scraper = FrameOneScraper("https://www.capitoltheatreusa.com/wp-content/themes/capitoltheatre/showtimes.xml",
+                                      theater_conf.get(CONF_SHOW_SCREEN))
         elif theater_conf.get(CONF_SCRAPER) == "fandango":
-            scrape_method = get_fandango_showtimes
+            scraper = FandangoScraper(theater_conf.get(CONF_THEATER_ID) or "",
+                                      theater_conf.get(CONF_SPLIT_FORMATS))
         sensors.append(
             MovieTimesSensor(
                 theater_conf.get(CONF_THEATER_NAME),
-                theater_conf.get(CONF_THEATER_ID) or "",
                 config.get(CONF_NUM_DAYS) or 0,
                 config.get(CONF_PAST_SHOWS) or False,
-                theater_conf.get(CONF_SHOW_DETAILS) or False,
-                theater_conf.get(CONF_SHOW_SCREEN) or False,
-                scrape_method,
+                scraper
             )
         )
     async_add_entities(sensors, update_before_add=True)
@@ -74,21 +76,15 @@ class MovieTimesSensor(Entity):
     def __init__(
         self,
         theater_name,
-        theater_id,
         days,
         filter_past_shows,
-        show_details,
-        show_screen,
-        scrape_method,
+        scraper
     ):
         self._sensor_name = theater_name
         self._theater_name = theater_name
-        self._theater_id = theater_id
         self._days = days
         self._filter_past_shows = filter_past_shows
-        self._show_details = show_details
-        self._show_screen = show_screen
-        self._scrape_method = scrape_method
+        self._scraper = scraper
         self._attr = None
         self._state = None
 
@@ -111,13 +107,7 @@ class MovieTimesSensor(Entity):
         for i in range(self._days + 1):
             day = {}
             day["day"] = (datetime.today() + timedelta(days=i)).date().isoformat()
-            day["showtimes"] = self._scrape_method(
-                theater_id=self._theater_id,
-                days_from_now=i,
-                filter_past_shows=self._filter_past_shows,
-                show_details=self._show_details,
-                show_screen=self._show_screen,
-            )
+            day["showtimes"] = self._scraper.scrape(i, self._filter_past_shows)
             showtimes.append(day)
         theater_data["days"] = showtimes
         self._attr = {STATE_ATTR_MOVIE_TIMES: theater_data}

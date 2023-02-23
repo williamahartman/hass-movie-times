@@ -19,6 +19,7 @@ sensor:
       - theater_name: Landmark Kendall Square
         scraper: fandango
         theater_id: AAEIS
+        split_formats: true
 
       # These theaters have more info (the "details" field and the theater number),
       # but they're only going to be useful if you live in metro Boston
@@ -42,10 +43,12 @@ sensor:
 
 `filter_past_shows` controls whether or not showtimes today that have already happened will appear. This is optional and defaults to `false`. By default, the sensor updates hourly, so this might be a little delayed if enabled.
 
-For now, this only works with the `theater_name`s listed in the example. `show_screen` and `show_details` are optional, and both default to `false`. Each theater gives different details, but it's usually stuff like the format or what rep series a screening falls under. For single screen theaters, like The Brattle, `show_screen` will always be `1`.
+`show_screen` and `show_details` are options for some scrapers. They are both optional, and default to `false`. Each theater gives different details, but it's usually stuff like the format or what rep series a screening falls under.
+
+The `split_formats` option for Fandango chooses whether or not showtimes for different formats of the same movie (Standard, 3D, IMAX, etc) are lumped under the same title or are listed separately. Defaults to `false`.
 
 ## Frontend
-I didn't bother making a real lovelace card for this, but here's a couple quick and dirty options you could try out if you install [Lovelace HTML Jinja2 Template Card](https://github.com/PiotrMachowski/Home-Assistant-Lovelace-HTML-Jinja2-Template-card) and [Decluttering Card](https://github.com/custom-cards/decluttering-card)
+I didn't bother making a real lovelace card for this, but here's a couple quick and dirty configs you could try out if you install [Lovelace HTML Jinja2 Template Card](https://github.com/PiotrMachowski/Home-Assistant-Lovelace-HTML-Jinja2-Template-card) and [Decluttering Card](https://github.com/custom-cards/decluttering-card).
 
 ```  movie_showtime_card:
     default:
