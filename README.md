@@ -1,12 +1,22 @@
 # Movie Times for Home Assistant
 This project defines a sensor that puts movie times in its attributes. I mostly just use this because I like seeing this kind of info on a dashboard I keep around, but who knows, maybe you could use it for some kind of funky automation or something...
 
-Unfortunately, I couldn't find any legit APIs for movie times that weren't way too expensive for this sort of thing, and I'm not super convinced those APIs would have accurate data for the smaller theaters I tend to go to. So I had to fall back on scraping the websites, and only implemented the theaters I care about. Eventually, I noticed that Fandango has an undocumented API that wasn't too tricky to figure out, so now this integration can now handle any theater on there. Of course, this is an official API, so this could fall apart at any time.
+Unfortunately, I couldn't find any legit APIs for movie times that weren't way too expensive for this sort of thing, and I'm not super convinced those APIs would have accurate data for the smaller theaters I tend to go to. So I had to fall back on scraping the websites, and only implemented the theaters I care about.
+
+#### Update February 2023
+Eventually, I noticed that Fandango has an undocumented API that wasn't too tricky to figure out, so now this integration can handle any theater on there. Of course, this is an unofficial API, so it could fall apart at any time.
+
+#### Update September 2023
+The Somerville and Capitol theaters have switched to [this ticketing service](https://veezi.com/en-us), so I've added support for it (it was even [documented!](https://api.us.veezi.com/Help/Introduction)).
+
+Interestingly, the new platforms exposes how many tickets were sold, so there's a new `percent_full` value for each showtime on the sensors for these theaters. This doesn't seem 100% accurate — I've seen showtimes with more tickets sold than seats. Also, the sensor only scans hourly, so it may not reflect recent ticket sales, especially shortly before a showtime when lots of people are buying tickets at the theater. In general, this might be useful, but it probably isn't totally reliable.
+
+I've kept the hard coded `scraper` options for these theaters so you don't have to dig around and find the tokens you need. It's possible this could become another generic option, but I don't think the necessary tokens would be get-able most other theaters using this service. I could possibly make it generic by scraping [these pages](https://ticketing.useast.veezi.com/sessions/47hkrx909r6ew1rvdr79yr16cr), but some info is missing on them (theater number, seats sold) and the JSON from the API is way easier to deal with. If more theaters move to this service, I might take another look opening it up beyond Somerville and The Capitol.
 
 ## Installation
 Throw the files in `custom_components` or point HACS at this repo.
 
-For the config file, put in something like this:
+For the config, put in something like this:
 ```
 sensor:
   - platform: movie_times
@@ -15,13 +25,13 @@ sensor:
     filter_past_shows: true
     theaters:
       # To find the id, look for the five character code in the URL, for example, Landmark Kendall Square's
-      # URL is https://www.fandango.com/landmark-kendall-square-cinema-aaeis/theater-page and it's ID is "AAEIS"
+      # URL is https://www.fandango.com/landmark-kendall-square-cinema-aaeis/theater-page and its ID is "AAEIS"
       - theater_name: Landmark Kendall Square
         scraper: fandango
         theater_id: AAEIS
         split_formats: true
 
-      # These theaters have more info (the "details" field and the theater number),
+      # These theaters may have more info (the "details" field, the theater number, percent full),
       # but they're only going to be useful if you live in metro Boston
       - theater_name: The Brattle Showtimes
         scraper: brattle
@@ -39,7 +49,7 @@ sensor:
         show_screen: true
         show_details: true
 ```
-`next_day` is the number of days into the future to include — `0` means to only show today, `1` means to show today and tomorrow, and so on. It's probably useless to make this very big, because not all of these theaters schedule stuff very far out. This is optional and defaults to `0`.
+`next_days` is the number of days into the future to include — `0` means to only show today, `1` means to show today and tomorrow, and so on. It's probably useless to make this very big, because not all of these theaters schedule stuff very far out. This is optional and defaults to `0`.
 
 `filter_past_shows` controls whether or not showtimes today that have already happened will appear. This is optional and defaults to `false`. By default, the sensor updates hourly, so this might be a little delayed if enabled.
 
@@ -47,212 +57,10 @@ sensor:
 
 The `split_formats` option for Fandango chooses whether or not showtimes for different formats of the same movie (Standard, 3D, IMAX, etc) are lumped under the same title or are listed separately. Defaults to `false`.
 
-## Frontend
-I didn't bother making a real lovelace card for this, but here's a couple quick and dirty configs you could try out if you install [Lovelace HTML Jinja2 Template Card](https://github.com/PiotrMachowski/Home-Assistant-Lovelace-HTML-Jinja2-Template-card) and [Decluttering Card](https://github.com/custom-cards/decluttering-card).
+## Lovelace Cards
 
-```  movie_showtime_card:
-    default:
-      - header_text: Change Me!
-      - theater_entity: Change Me!
-    card:
-      type: custom:html-template-card
-      title: '[[header_text]]'
-      ignore_line_breaks: true
-      entities: '[[theater_entity]]'
-      content: |
-        <div class="movie-container">
-          {% for movie in state_attr('[[theater_entity]]','movie_times')['days'][0]['showtimes'] %}
-          <div class="movie">
-            <div class="movie-title">
-              {{ movie['name'] }}
-            </div>
-            {% if movie['details'] != Null %}
-            {% for detail in movie['details'] %}
-            {% if loop.first %}
-              <br>
-            {% endif %}
-            <div class='detail'>
-              {{ detail }}
-            </div>
-            {% endfor %}
-            {% endif %}
-            <div class="showtime-container">
-              {% for show in movie['times'] %}
-              <a target="_blank" rel="noopener noreferrer" {% if show['link'] != Null %} href="{{show['link']}} {% endif %}">
-                <div class="showtime">
-                  {{show['time']}}
-                  {% if show['screen'] != Null %}
-                  <br>
-                  <span class="theater-label">Theater </span>{{show['screen']}}
-                  {% endif %}
-                </div>
-              </a>
-              {% endfor %}
-            </div>
-          </div>
-          {% else %}
-          <div class="movie">
-            <div class="movie-title">
-              No Showtimes
-            </div>
-          </div
-          {% endfor %}
-        </div>
-        <style>
-          .movie-container {
-            display: flex;
-            flex-flow: row wrap;
-            justify-content: flex-start;
-            gap: 7.5px;
-          }
-          .movie {
-            background: var( --ha-card-background, var(--card-background-color, white) );
-            border-radius: var(--ha-card-border-radius, 10px);
-            box-shadow: var( --ha-card-box-shadow, 0px 2px 1px -1px rgba(0, 0, 0, 0.2), 0px 1px 1px 0px rgba(0, 0, 0, 0.14), 0px 1px 3px 0px rgba(0, 0, 0, 0.12) );
-            padding: 10px;
-          }
-          @media all and (min-width:600px) {
-            .movie {
-              width: calc(50% - 10px - 20px);
-            }
-          }
-          @media not all and (min-width:600px) {
-            .movie {
-              width: 100%;
-            }
-          }
-          .movie-title {
-            padding-top: 0px;
-            padding-left: 0.25em;
-            font-size: 1.2em;
-            font-variant: small-caps;
-            display: inline;
-          }
-          .detail {
-            font-size: 0.8em;
-            color: var(--disabled-text-color);
-            padding: 2.5px;
-            padding-right: 5px;
-            padding-left: 5px;
-            margin-right: 1em;
-            display: inline-block;
-            text-align: center;
-          }
-          .showtime-container {
-            display: flex;
-            flex-flow: row wrap;
-            justify-content: flex-start;
-            gap: 5px;
-            margin-top: 10px;
-            margin-bottom: 10px;
-          }
-          .showtime {
-            font-size: 1em;
-            background: var(--background-color);
-            padding: 5px;
-            padding-right: 10px;
-            padding-left: 10px;
-            border-radius: var(--ha-card-border-radius, 4px);
-            display: inline-block;
-            text-align: center;
-          }
-          .theater-label {
-            font-size: 0.65em;
-            vertical-align: top;
-            color: var(--disabled-text-color);
-          }
-          a {
-            color: inherit;
-            text-decoration: inherit;
-          }
-          ha-card {
-            background: none;
-            box-shadow: none;
-          }
-        </style>
+While you could write some cool automation about the next movie playing at your neighborhood theater or something, you might just want to movie times on your dashboard. That's all I really do with it after all...
 
-  compact_movie_showtime_card:
-    default:
-      - header_text: Change Me!
-      - theater_entity: Change Me!
-    card:
-      type: custom:html-template-card
-      title: '[[header_text]]'
-      ignore_line_breaks: true
-      entities: '[[theater_entity]]'
-      content: |
-        <div class="movie-container">
-          {% for movie in state_attr('[[theater_entity]]','movie_times')['days'][0]['showtimes'] %}
-          <div class="movie">
-            <div class="movie-title">
-              {{ movie['name'] }}
-            </div>
-            <div class="showtime-container">
-              {% for show in movie['times'] %}
-              <a target="_blank" rel="noopener noreferrer" {% if show['link'] != Null %} href="{{show['link']}} {% endif %}">
-                <div class="showtime">
-                  {{show['time']}}
-                </div>
-              </a>
-              {% endfor %}
-            </div>
-          </div>
-          {% else %}
-          <div class="movie">
-            <div class="movie-title">
-              No Showtimes
-            </div>
-          </div
-          {% endfor %}
-        </div>
-        <style>
-          .movie-container {
-            justify-content: flex-start;
-          }
-          .movie {
-            display: flex;
-            align-items: center;
-            background: var( --ha-card-background, var(--card-background-color, white) );
-            border-radius: var(--ha-card-border-radius, 4px);
-            box-shadow: var( --ha-card-box-shadow, 0px 2px 1px -1px rgba(0, 0, 0, 0.2), 0px 1px 1px 0px rgba(0, 0, 0, 0.14), 0px 1px 3px 0px rgba(0, 0, 0, 0.12) );
-            width: 100%;
-            padding-bottom: 5px;
-          }
-          .movie-title {
-            padding-top: 0px;
-            padding-right: 0.25em;
-            font-size: 1.2em;
-            font-weight: 600;
-            width: 250px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-          .showtime-container {
-            display: flex;
-            flex-grow: 1;
-            gap: 10px;
-          }
-          .showtime {
-            font-size: 0.95em;
-            text-align: left;
-            width: 65px;
-          }
-          a {
-            color: inherit;
-            text-decoration: inherit;
-          }
-          .card-header {
-            font-weight: 600 !important;
-            padding-bottom: 5px !important;
-            line-height: 32px;
-          }
-          ha-card {
-            padding-left: 22px !important;
-            padding-top: 0px !important;
-            padding-bottom: 2px !important;
-            background: none;
-            box-shadow: none;
-          }
-        </style>
-```
+I didn't want to go to the effort of making real cards though, so my solution is a little hacky. I listed what I did [over here](readme/LOVELACE.md). Screenshots below.
+
+![](readme/images/bigcard.png) ![](readme/images/compactcard.png)

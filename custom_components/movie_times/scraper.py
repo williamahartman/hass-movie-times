@@ -3,8 +3,7 @@ import logging
 import json
 import re
 from bs4 import BeautifulSoup
-from zoneinfo import ZoneInfo
-from datetime import datetime, date, timedelta, timezone
+from datetime import datetime, date, timedelta
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -88,52 +87,52 @@ class CoolidgeScraper(Scraper):
                 shows.append(show_data)
         return shows
 
-class FrameOneScraper(Scraper):
-    def __init__(self, url, show_screen):
-        self._url = url
-        self._show_screen = show_screen
+class VeeziScraper(Scraper):
+    def __init__(self, access_token, site_token, show_screen):
+        self._access_token = access_token
+        self._site_token   = site_token
+        self._show_screen  = show_screen
 
     def scrape(self, days_from_now=0, filter_past_shows=True):
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0"}
-        raw_html = requests.get(self._url, headers=headers).text
-        data = BeautifulSoup(raw_html, "html.parser")
-
-        shows = []
-
-        # Both of this company's theaters are in MA, so it's safe to assume EST
-        todays_date_EST = datetime.today().replace(tzinfo=timezone.utc).astimezone(tz=ZoneInfo("America/New_York"))
-        target_date = todays_date_EST + timedelta(days=days_from_now)
-
-        film_titles = data.find_all("filmtitle")
-        for film_title in film_titles:
-            show_data = {}
-            show_data["name"] = film_title.find("name").text.title()
-            show_data["times"] = []
-            had_show_on_target_date = False
-            for show in film_title.find_all("show"):
-                show_date_raw = show.find("date").text
-                show_time_raw = show.find("time").text
-                show_date = datetime(
-                    int(show_date_raw[-4:]),
-                    int(show_date_raw[:2]),
-                    int(show_date_raw[2:4]),
-                    hour=int(show_time_raw[:2]),
-                    minute=int(show_time_raw[2:]),
-                    tzinfo=ZoneInfo("America/New_York"),
-                )
-                is_target_date = show_date.date() == target_date.date()
-                if is_target_date and (not filter_past_shows or days_from_now > 0 or show_date > target_date):
-                    showtime_data = {}
-                    showtime_data["time"] = show_date.strftime("%I:%M %p").lower().removeprefix("0")
-                    if show.find("salelink"):
-                        showtime_data["link"] = show.find("salelink").text
-                    if self._show_screen:
-                        showtime_data["screen"] = show.find("screen").text
-                    show_data["times"].append(showtime_data)
-                had_show_on_target_date = had_show_on_target_date or is_target_date
-            if had_show_on_target_date and (not filter_past_shows or len(show_data["times"]) > 0):
-                shows.append(show_data)
-        return shows
+        target_date = datetime.today() + timedelta(days=days_from_now)
+        headers = {"VeeziAccessToken": self._access_token}
+        data = json.loads(requests.get("https://api.us.veezi.com/v1/session", headers=headers).text)
+        shows_by_title = {}
+        for session in data:
+            title = session["Title"]
+            if title not in shows_by_title:
+                shows_by_title[title] = {"name": title,
+                                         "times": []}
+            show_data = shows_by_title[title]
+            show_date = datetime.strptime(session["FeatureStartTime"], "%Y-%m-%dT%H:%M:%S")
+            is_target_date = show_date.date() == target_date.date()
+            if is_target_date and (not filter_past_shows or days_from_now > 0 or show_date > target_date):
+                showtime_data = {}
+                showtime_data["time"] = show_date.time().strftime("%I:%M %p").lower().removeprefix("0")
+                showtime_data["percent_full"] = int(((session["SeatsSold"] + session["SeatsHeld"] + session["SeatsHouse"]) /
+                                                     (session["SeatsSold"] + session["SeatsHeld"] + session["SeatsHouse"] + session["SeatsAvailable"])) * 100)
+                if self._show_screen:
+                    screen_json = json.loads(requests.get("https://api.us.veezi.com/v1/screen/" + str(session["ScreenId"]), headers=headers).text)
+                    showtime_data["screen"] = screen_json["ScreenNumber"]
+                if show_date > target_date:
+                    showtime_data["link"] = "https://ticketing.useast.veezi.com/purchase/" + str(session["Id"]) + "?siteToken=" + self._site_token
+                match session["FilmFormat"]:
+                    case "2D Film":
+                        showtime_data["details"] = "35mm"
+                    case "2D Digital":
+                        if "70mm" in session["PriceCardName"]:
+                            showtime_data["details"] = "70mm"
+                        else:
+                            showtime_data["details"] = "DCP"
+                    case "3D Digital":
+                        showtime_data["details"] = "3D"
+                    case "3D HFR":
+                        showtime_data["details"] = "3D HFR"
+                show_data["times"].append(showtime_data)
+        showtime_list = []
+        for showtime in shows_by_title.values():
+            if showtime["times"]: showtime_list.append(showtime)
+        return showtime_list
 
 class FandangoScraper(Scraper):
     def __init__(self, theater_id, separate_formats=True):

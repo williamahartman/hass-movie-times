@@ -53,11 +53,13 @@ async def async_setup_platform(
             scraper = CoolidgeScraper(theater_conf.get(CONF_SHOW_DETAILS),
                                       theater_conf.get(CONF_SHOW_SCREEN))
         elif theater_conf.get(CONF_SCRAPER) == "somerville":
-            scraper = FrameOneScraper("https://somervilletheatre.com/wp-content/themes/somerville/showtimes.xml",
-                                      theater_conf.get(CONF_SHOW_SCREEN))
+            scraper = VeeziScraper("qvn2v2bvnf11k126ehz14zcxwr",
+                                   "47hkrx909r6ew1rvdr79yr16cr",
+                                   theater_conf.get(CONF_SHOW_SCREEN))
         elif theater_conf.get(CONF_SCRAPER) == "capitol":
-            scraper = FrameOneScraper("https://www.capitoltheatreusa.com/wp-content/themes/capitoltheatre/showtimes.xml",
-                                      theater_conf.get(CONF_SHOW_SCREEN))
+            scraper = VeeziScraper("4svsx56qgpjhq9p940yd4ghb7c",
+                                   "vq7ps4bp3nm4neekfzb7wq5xzg",
+                                   theater_conf.get(CONF_SHOW_SCREEN))
         elif theater_conf.get(CONF_SCRAPER) == "fandango":
             scraper = FandangoScraper(theater_conf.get(CONF_THEATER_ID) or "",
                                       theater_conf.get(CONF_SPLIT_FORMATS))
@@ -70,7 +72,6 @@ async def async_setup_platform(
             )
         )
     async_add_entities(sensors, update_before_add=True)
-
 
 class MovieTimesSensor(Entity):
     def __init__(
